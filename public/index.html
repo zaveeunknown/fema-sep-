@@ -1,0 +1,1549 @@
+<!-- Improved version of index.html with support for marking leads as sold -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local CRM</title>
+    <!-- Tailwind CDN for quick styling (dark mode) -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <!-- Custom dark theme overrides -->
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Firebase SDKs -->
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Include Firebase Storage for file uploads -->
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <!-- GSAP for animations -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Chart.js for analytics -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Main JS logic: use the extended script with sold workflow -->
+    <script defer src="firebase.js"></script>
+    <script defer src="app.js"></script>
+    <!-- Modern browsers (preferred) -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+
+    <!-- For Safari / iOS -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+    <!-- Fallback for older browsers -->
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  </head>
+  <body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  
+  <!-- Login Background -->
+<div id="login-bg"
+     class="fixed inset-0 bg-black z-[9999] hidden">
+</div>
+
+<!-- Dot Overlay -->
+<div id="login-dots"
+     class="fixed inset-0 pointer-events-none z-[10000] hidden overflow-hidden">
+</div>
+  
+<!-- Navbar/Header -->
+<header class="z-[50] flex items-center justify-between px-6 py-4 bg-gray-800 border-b border-gray-700">
+  
+  <!-- Logo + Title group -->
+  <div class="flex items-center">
+    <img src="/favicon-32x32.png" alt="CRM Logo" class="w-6 h-6 mr-2">
+    <h1 class="text-xl font-semibold text-white">Local CRM</h1>
+  </div>
+
+  <!-- Navigation -->
+    <nav id="header-nav" class="flex space-x-4">
+  <button class="nav-link" data-section="dashboard" data-role="agent">Dashboard</button>
+  <button class="nav-link" data-section="leads" data-role="agent">Leads</button>
+  <button class="nav-link" data-section="clients" data-role="agent">Clients</button>
+  <button class="nav-link" data-section="notes" data-role="agent">Notes</button>
+  <button class="nav-link" data-section="tasks" data-role="agent">Tasks</button>
+  <button class="nav-link" data-section="analytics" data-role="agent">Analytics</button>
+  <button class="nav-link" data-section="fema" data-role="agent">FEMA</button>
+  <button class="nav-link" data-section="sales" data-role="agent">Sales</button>
+  <button class="nav-link" data-section="settings" data-role="agent">Settings</button>
+  <button class="nav-link" data-section="profile" data-role="agent">Profile</button>
+  <button
+    id="sign-out-btn-bottom"
+    class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded"
+    data-role="agent"
+  >
+    Sign Out
+  </button>
+</nav>
+   <!-- Admin Sidebar (hidden by default) -->
+<aside
+  id="admin-sidebar"
+  class="hidden w-64 bg-gray-800 border-r border-gray-700 flex flex-col p-4 space-y-4 fixed top-0 left-0 h-full z-40"
+>
+  <h1 class="text-2xl font-bold text-center mb-4">Admin Panel</h1>
+  <nav class="flex flex-col space-y-2">
+    <button class="admin-nav-btn" data-target="overview">Overview</button>
+    <button class="admin-nav-btn" data-target="admin-manage-agents">Manage Agents</button>
+    <button class="admin-nav-btn" data-target="admin-policy">Policy & Compliance</button>
+    <button class="admin-nav-btn" data-target="admin-analytics">Analytics</button>
+    <button class="admin-nav-btn" data-target="communication">Communication Hub</button>
+    <button class="admin-nav-btn" data-target="automation">Automation</button>
+    <button class="admin-nav-btn" data-target="documents">Documents</button>
+    <button class="admin-nav-btn" data-target="reporting">Reporting</button>
+    <button class="admin-nav-btn" data-target="advanced">Advanced</button>
+  </nav>
+  <button id="signout-btn"
+    class="mt-6 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-semibold">
+    Sign Out
+  </button>
+</aside>
+
+  <!-- User Info -->
+  <div id="user-info" class="flex items-center space-x-3"></div>
+</header>
+
+
+<!-- Main layout: sidebar + content -->
+<div class="flex flex-1">
+  <!-- Sidebar for filters/search/profile -->
+  <aside id="sidebar" 
+  class="relative w-64 bg-gray-800 border-r border-gray-700 p-4 hidden flex flex-col">
+    <div class="space-y-2">
+      <h2 class="text-lg font-semibold">Profile</h2>
+      <div id="profile-details" class="text-sm text-gray-400"></div>
+    </div>
+    <div>
+      <h2 class="text-lg font-semibold">Filters</h2>
+      <div class="mt-2 space-y-2">
+        <label class="block text-sm">Date Range</label>
+        <input
+          type="date"
+          id="filter-start-date"
+          class="w-full p-1 rounded bg-gray-700 text-gray-100"
+        />
+        <input
+          type="date"
+          id="filter-end-date"
+          class="w-full p-1 rounded bg-gray-700 text-gray-100"
+        />
+        <button
+          id="apply-filters"
+          class="mt-2 w-full px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded"
+        >
+          Apply
+        </button>
+        <button
+          id="clear-filters"
+          class="w-full px-2 py-1 bg-gray-600 hover:bg-gray-700 rounded"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
+</aside>
+
+<!-- Admin Content Wrapper -->
+<main id="admin-content" class="hidden flex-1 p-6 overflow-y-auto space-y-8">
+  
+  <!-- Overview Section -->
+  <section id="overview-section" class="admin-section">
+    <div class="mt-8 space-y-8">
+          <!-- Quick stats row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-3xl font-bold" id="admin-sales-total-premium">0</span>
+              <span class="text-sm text-gray-400">Total Premium ($)</span>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-3xl font-bold" id="admin-sales-total-commission">0</span>
+              <span class="text-sm text-gray-400">Total Commission ($)</span>
+            </div>
+          </div>
+          <!-- Monthly Sales Chart -->
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2 text-center">Monthly Sales</h3>
+            <div class="w-full h-64">
+              <canvas id="admin-monthly-sales-chart"></canvas>
+            </div>
+          </div>
+          <!-- Policy Type Chart -->
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2 text-center">Sales by Policy Type</h3>
+            <div class="w-full h-64">
+              <canvas id="admin-policy-sales-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+  <!-- Manage Agents Section -->
+  <section id="admin-manage-agents" class="section admin-section hidden">
+  <h2 class="text-2xl font-bold mb-4">Manage Agents</h2>
+
+  <!-- Add New Agent -->
+  <div class="mb-6">
+    <button id="add-agent-btn" class="bg-green-600 px-4 py-2 rounded">Add New Agent</button>
+  </div>
+
+  <!-- Agents Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-left bg-gray-800 rounded shadow">
+      <thead>
+        <tr>
+          <th class="p-2">Name</th>
+          <th class="p-2">Email</th>
+          <th class="p-2">Leads</th>
+          <th class="p-2">Clients</th>
+          <th class="p-2">Role</th>
+          <th class="p-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="agents-table-body"></tbody>
+    </table>
+  </div>
+</section>
+      <!-- Policy & Compliance Section -->
+      <section id="policy-compliance-section" class="admin-section hidden">
+        <h2 class="text-3xl font-semibold mb-4">
+          Policy &amp; Compliance Tracking
+        </h2>
+        <div class="mb-4">
+          <h3 class="text-xl font-semibold mb-2">Policy Database</h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-gray-700">
+                <tr>
+                  <th class="py-2 px-3">Carrier</th>
+                  <th class="py-2 px-3">Plan</th>
+                  <th class="py-2 px-3">Premium</th>
+                  <th class="py-2 px-3">Effective</th>
+                  <th class="py-2 px-3">Renewal</th>
+                  <th class="py-2 px-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody
+                id="admin-policy-table-body"
+                class="divide-y divide-gray-700"
+              ></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-xl font-semibold mb-2">Compliance Documents</h3>
+          <!-- Document Uploads & Required Fields -->
+          <div class="flex flex-col space-y-4">
+            <label class="block text-sm">Upload SOA / Compliance Docs</label>
+            <input
+              type="file"
+              multiple
+              class="p-2 bg-gray-700 rounded"
+              id="compliance-upload"
+            />
+            <button
+              id="validate-compliance"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded self-start"
+            >
+              Validate Required Fields
+            </button>
+          </div>
+        </div>
+      </section>
+
+  <!-- =============================
+       Analytics Section
+  ============================= -->
+  <section id="admin-analytics" class="section admin-section hidden">
+    <h2 class="text-2xl font-bold mb-4">Analytics</h2>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-4 mb-6">
+      <div>
+        <label for="analytics-date" class="block text-sm">Date Range</label>
+        <input type="month" id="analytics-date" class="p-2 rounded bg-gray-700 text-white" />
+      </div>
+      <div>
+        <label for="analytics-agent" class="block text-sm">Agent</label>
+        <select id="analytics-agent" class="p-2 rounded bg-gray-700 text-white">
+          <option value="all">All Agents</option>
+        </select>
+      </div>
+      <div>
+        <label for="analytics-product" class="block text-sm">Product</label>
+        <select id="analytics-product" class="p-2 rounded bg-gray-700 text-white">
+          <option value="all">All Products</option>
+        </select>
+      </div>
+      <button id="analytics-apply" class="bg-blue-600 px-4 py-2 rounded">Apply</button>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <h3 class="text-lg font-semibold mb-2">Lead Sources</h3>
+        <canvas id="lead-sources-chart"></canvas>
+      </div>
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <h3 class="text-lg font-semibold mb-2">Agent Performance</h3>
+        <canvas id="agent-performance-chart"></canvas>
+      </div>
+      <div class="bg-gray-800 p-4 rounded shadow col-span-1 md:col-span-2">
+        <h3 class="text-lg font-semibold mb-2">Sales Trends</h3>
+        <canvas id="sales-trends-chart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Communication Hub -->
+  <section id="communication-section" class="admin-section hidden">
+        <h2 class="text-3xl font-semibold mb-4">Communication Hub</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Internal Messaging -->
+          <div class="bg-gray-800 p-4 rounded h-64 flex flex-col">
+            <h3 class="text-xl font-semibold mb-2">Messages</h3>
+            <div
+              id="messages-list"
+              class="flex-1 overflow-y-auto mb-4 bg-gray-700 p-2 rounded"
+            ></div>
+            <div class="flex space-x-2">
+              <input
+                type="text"
+                id="message-input"
+                class="flex-1 p-2 rounded bg-gray-700 text-gray-100"
+                placeholder="Type a message..."
+              />
+              <button
+                id="send-message"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+          <!-- Task Assignments -->
+          <div class="bg-gray-800 p-4 rounded h-64 flex flex-col">
+            <h3 class="text-xl font-semibold mb-2">Tasks</h3>
+            <ul
+              id="admin-tasks-list"
+              class="flex-1 overflow-y-auto space-y-2 mb-4"
+            ></ul>
+            <div class="flex space-x-2">
+              <input
+                type="text"
+                id="new-task-title"
+                class="flex-1 p-2 rounded bg-gray-700 text-gray-100"
+                placeholder="Task description..."
+              />
+              <button
+                id="add-admin-task"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+  </section>
+
+  <!-- Automation & Alerts -->
+  <section id="automation-section" class="admin-section hidden">
+    <h2 class="text-3xl font-semibold mb-4">Automation &amp; Alerts</h2>
+        <div class="space-y-4">
+          <button
+            id="trigger-alerts"
+            class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+          >
+            Check for Uncontacted Leads
+          </button>
+          <button
+            id="trigger-renewals"
+            class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+          >
+            Check Upcoming Renewals
+          </button>
+          <div id="alerts-list" class="bg-gray-800 p-4 rounded h-40 overflow-y-auto"></div>
+        </div>
+  </section>
+
+  <!-- Documents -->
+  <section id="documents-section" class="admin-section hidden">
+    <h2 class="text-3xl font-semibold mb-4">Document &amp; File Management</h2>
+        <div class="flex flex-col space-y-4">
+          <label class="block text-sm">Upload Documents</label>
+          <input
+            type="file"
+            id="upload-docs"
+            multiple
+            class="p-2 bg-gray-700 rounded"
+          />
+          <div id="docs-list" class="bg-gray-800 p-4 rounded h-40 overflow-y-auto"></div>
+        </div>
+  </section>
+
+  <!-- Reporting -->
+  <section id="reporting-section" class="admin-section hidden">
+    <h2 class="text-3xl font-semibold mb-4">Reporting &amp; Export</h2>
+        <div class="flex flex-col space-y-4">
+          <button
+            id="generate-report"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded"
+          >
+            Generate Custom Report
+          </button>
+          <div class="flex space-x-4">
+            <button
+              id="export-csv"
+              class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded"
+            >
+              Export CSV
+            </button>
+            <button
+              id="export-pdf"
+              class="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded"
+            >
+              Export PDF
+            </button>
+          </div>
+          <div class="flex space-x-4">
+            <button
+              id="schedule-weekly"
+              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded"
+            >
+              Email Weekly
+            </button>
+            <button
+              id="schedule-monthly"
+              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded"
+            >
+              Email Monthly
+            </button>
+          </div>
+        </div>
+  </section>
+
+  <!-- Advanced Features -->
+  <section id="advanced-section" class="admin-section hidden">
+    <h2 class="text-3xl font-semibold mb-4">Advanced Features</h2>
+        <div class="space-y-6">
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2">Geo Heatmap</h3>
+            <!-- Placeholder for heatmap visualization -->
+            <div
+              id="geo-heatmap"
+              class="h-64 bg-gray-700 rounded flex items-center justify-center text-gray-400"
+            >
+              Heatmap goes here
+            </div>
+          </div>
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2">Client Risk Scoring</h3>
+            <!-- Placeholder for risk scoring components -->
+            <p class="text-gray-400 mb-2">
+              Automatically assess and rank clients based on age, number of
+              policies and other factors.
+            </p>
+            <button
+              id="run-risk-score"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded"
+            >
+              Run Risk Assessment
+            </button>
+          </div>
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2">Renewal Pipeline (Kanban)</h3>
+            <!-- Placeholder for Kanban board for renewals -->
+            <div
+              id="renewal-pipeline"
+              class="h-64 bg-gray-700 rounded flex items-center justify-center text-gray-400"
+            >
+              Kanban board goes here
+            </div>
+          </div>
+          <div class="bg-gray-800 p-4 rounded">
+            <h3 class="text-xl font-semibold mb-2">Integration Hooks</h3>
+            <p class="text-gray-400">
+              Connect your CRM to external services like Google Calendar,
+              Twilio and Mailgun/SendGrid.
+            </p>
+          </div>
+        </div>
+  </section>
+
+  <!-- =============================
+       Policy & Compliance Section
+  ============================= -->
+  <section id="admin-policy-section" class="section admin-section hidden">
+    <h2 class="text-2xl font-bold mb-4">Policy & Compliance</h2>
+
+    <!-- Compliance Documents -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-2">Compliance Documents</h3>
+      <ul id="compliance-docs" class="list-disc pl-6 text-sm"></ul>
+    </div>
+
+    <!-- Recent Regulation Changes -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-2">Recent Regulation Changes</h3>
+      <ul id="regulation-changes" class="list-disc pl-6 text-sm"></ul>
+    </div>
+
+    <!-- Pending Policy Checks -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold mb-2">Pending Policy Checks</h3>
+      <ul id="policy-checks" class="list-disc pl-6 text-sm"></ul>
+    </div>
+
+    <!-- Flagged Leads/Clients -->
+    <div id="flagged-container" class="bg-red-700 p-4 rounded hidden">
+      <h3 class="text-lg font-semibold mb-2">Flagged for Compliance Review</h3>
+      <ul id="flagged-list"></ul>
+    </div>
+  </section>
+
+</main>
+
+
+      <!-- Main content area -->
+      <main id="main-content" class="flex-1 p-6 overflow-y-auto space-y-6">
+        <!-- =============================
+             Admin Overview Section
+        ============================= -->
+        <section id="admin-overview" class="section hidden">
+          <h2 class="text-2xl font-bold mb-4">Admin Overview</h2>
+
+          <!-- Summary Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="p-4 bg-gray-800 rounded shadow text-center">
+              <h3 class="text-lg font-semibold">Total Leads</h3>
+              <p id="overview-total-leads" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow text-center">
+              <h3 class="text-lg font-semibold">Total Clients</h3>
+              <p id="overview-total-clients" class="text-3xl font-bold">0</p>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow text-center">
+              <h3 class="text-lg font-semibold">Conversion Rate</h3>
+              <p id="overview-conversion-rate" class="text-3xl font-bold">0%</p>
+            </div>
+          </div>
+
+          <!-- Alerts -->
+          <div id="overview-alerts" class="bg-red-700 p-4 rounded hidden">
+            <h4 class="font-semibold">Alerts</h4>
+            <ul id="alerts-list"></ul>
+          </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">Dashboard</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-4xl font-bold" id="stat-leads-today">0</span>
+              <span class="text-sm text-gray-400">Leads Today</span>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-4xl font-bold" id="stat-follow-ups">0</span>
+              <span class="text-sm text-gray-400">Follow-ups</span>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-4xl font-bold" id="stat-total-leads">0</span>
+              <span class="text-sm text-gray-400">Total Leads</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Leads Section -->
+        <section id="leads-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">Leads</h2>
+          <!-- Search & add bar -->
+          <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+            <input
+              type="text"
+              id="lead-search"
+              class="flex-1 p-2 rounded bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search leads by name, phone or ZIP..."
+            />
+            <button
+              type="button"
+              id="clear-lead-search"
+              class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+            >
+              Clear
+            </button>
+            <button
+              id="add-lead-btn"
+              class="px-3 py-2 bg-green-600 hover:bg-green-700 rounded"
+            >
+              Add Lead
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-gray-800">
+                <tr>
+                  <th class="py-2 px-3">Name</th>
+                  <th class="py-2 px-3">DOB</th>
+                  <th class="py-2 px-3">Phone</th>
+                  <th class="py-2 px-3">Plan</th>
+                  <th class="py-2 px-3">Callback</th>
+                  <th class="py-2 px-3">Score</th>
+                  <th class="py-2 px-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leads-table-body" class="divide-y divide-gray-700"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Clients Section -->
+        <section id="clients-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">Clients</h2>
+          <p class="text-sm text-gray-400 mb-2">Click a client to view/edit their details.</p>
+          <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+            <input
+              type="text"
+              id="client-search"
+              class="flex-1 p-2 rounded bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search clients by name, phone or plan..."
+            />
+            <button
+              type="button"
+              id="clear-client-search"
+              class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded"
+            >
+              Clear
+            </button>
+          </div>
+          <div id="clients-list" class="space-y-4"></div>
+        </section>
+
+        <!-- Notes Section -->
+        <section id="notes-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">Notes</h2>
+          <form id="note-form" class="mb-4">
+            <textarea
+              id="note-text"
+              class="w-full p-2 rounded bg-gray-800 text-gray-100"
+              rows="3"
+              placeholder="Write a note..."
+            ></textarea>
+            <button
+              type="submit"
+              class="mt-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded"
+            >
+              Add Note
+            </button>
+          </form>
+          <ul id="notes-list" class="space-y-2 text-sm"></ul>
+        </section>
+
+        <!-- Tasks Section -->
+        <section id="tasks-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">Tasks</h2>
+          <p class="text-sm text-gray-400 mb-2">Create and track your to‑dos.</p>
+          <button
+            id="add-task-btn"
+            class="mb-4 px-3 py-2 bg-green-600 hover:bg-green-700 rounded"
+          >
+            Add Task
+          </button>
+          <div id="tasks-list" class="space-y-4"></div>
+        </section>
+
+        <!-- FEMA Section -->
+        <section id="fema-section" class="section hidden">
+          <h2 class="text-2xl font-semibold mb-4">FEMA Disasters</h2>
+          <div id="agent-disaster-list" class="space-y-4"></div>
+        </section>
+
+<!-- Analytics Section -->
+<section id="analytics-section" class="section hidden">
+  <h2 class="text-2xl font-semibold mb-4">Analytics</h2>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+      <span class="text-4xl font-bold" id="analytics-total-leads">0</span>
+      <span class="text-sm text-gray-400">Total Leads</span>
+    </div>
+    <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+      <span class="text-4xl font-bold" id="analytics-total-clients">0</span>
+      <span class="text-sm text-gray-400">Total Clients</span>
+    </div>
+  </div>
+
+  <div class="mt-6 bg-gray-800 p-4 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4 text-center">Sales Conversion</h3>
+    
+    <!-- Responsive chart container -->
+    <div class="w-full max-w-md h-72 mx-auto">
+      <canvas id="sales-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Leads Over Time Line Chart -->
+  <div class="mt-6 bg-gray-800 p-4 rounded shadow">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold text-center flex-1">Leads Over Time</h3>
+      <select id="analytics-date-range" class="bg-gray-700 text-gray-100 p-1 rounded text-sm ml-4">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+    </div>
+    <div class="w-full max-w-full h-72 mx-auto">
+      <canvas id="leads-over-time-chart"></canvas>
+    </div>
+  </div>
+</section>
+
+    <!-- Admin Section -->
+    <section id="admin-section" class="section hidden">
+        <!-- Admin section header with sign out button -->
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-semibold">Admin Dashboard</h2>
+          <!-- Sign out button for admins to quickly log off -->
+          <button id="admin-sign-out-btn"
+                  class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+            Sign Out
+          </button>
+        </div>
+        <!-- Agents Management -->
+        <div class="mb-8">
+          <h3 class="text-xl font-semibold mb-2">Manage Agents</h3>
+          <button
+            id="add-user-btn"
+            class="mb-4 px-3 py-2 bg-green-600 hover:bg-green-700 rounded"
+          >
+            Add Agent
+          </button>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-gray-800">
+                <tr>
+                  <th class="py-2 px-3">Name</th>
+                  <th class="py-2 px-3">Email</th>
+                  <th class="py-2 px-3">Role</th>
+                  <th class="py-2 px-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table" class="divide-y divide-gray-700"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Global Analytics -->
+        <div class="mb-8">
+          <h3 class="text-xl font-semibold mb-2">Global Sales &amp; Analytics</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-4xl font-bold" id="admin-total-leads">0</span>
+              <span class="text-sm text-gray-400">Total Leads</span>
+            </div>
+            <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+              <span class="text-4xl font-bold" id="admin-total-clients">0</span>
+              <span class="text-sm text-gray-400">Total Clients</span>
+            </div>
+          </div>
+          <div class="mt-6 bg-gray-800 p-4 rounded shadow">
+            <h4 class="text-lg font-semibold mb-4 text-center">Sales Conversion (All Agents)</h4>
+            <div class="w-full max-w-md h-72 mx-auto">
+              <canvas id="admin-sales-chart"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- Reports -->
+        <div class="mb-8">
+          <h3 class="text-xl font-semibold mb-2">Reports</h3>
+          <div class="space-y-2 flex flex-col">
+            <button
+              id="export-all-leads-btn"
+              class="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+            >
+              Export All Leads (CSV)
+            </button>
+            <button
+              id="export-all-clients-btn"
+              class="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+            >
+              Export All Clients (CSV)
+            </button>
+            <button
+              id="export-all-notes-btn"
+              class="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+            >
+              Export All Notes (CSV)
+            </button>
+          </div>
+        </div>
+        <!-- All Notes -->
+        <div class="mb-8">
+          <h3 class="text-xl font-semibold mb-2">All Notes</h3>
+          <ul id="admin-notes-list" class="space-y-2 text-sm"></ul>
+        </div>
+    </section>
+
+    <!-- User Modal -->
+    <div
+        id="user-modal"
+        class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50"
+      >
+        <div
+          class="bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md"
+          style="max-height: 90vh; overflow-y: auto;"
+        >
+          <h3 class="text-2xl font-bold mb-4 text-gray-100">Add / Edit Agent</h3>
+          <form id="user-form" class="space-y-4">
+            <div>
+              <label class="text-gray-300 text-sm">Email</label>
+              <input
+                type="email"
+                id="user-email"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label class="text-gray-300 text-sm">Password</label>
+              <input
+                type="password"
+                id="user-password"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              />
+              <p class="text-xs text-gray-500 mt-1">Leave blank to keep current password</p>
+            </div>
+            <div>
+              <label class="text-gray-300 text-sm">Full Name</label>
+              <input
+                type="text"
+                id="user-name"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-gray-300 text-sm">Role</label>
+              <select
+                id="user-role"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              >
+                <option value="agent">Agent</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                id="cancel-user-btn"
+                class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+    </div>
+<!-- Settings Section -->
+<section id="settings-section" class="section hidden">
+  <h2 class="text-2xl font-semibold mb-4">Settings</h2>
+  <div class="space-y-4">
+    <div>
+      <h3 class="text-lg font-semibold">Export Data</h3>
+      <button
+        id="export-leads-btn"
+        class="mt-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded"
+      >
+        Export Leads (CSV)
+      </button>
+    </div>
+    <div>
+      <h3 class="text-lg font-semibold">Account</h3>
+      <button
+        id="sign-out-btn"
+        class="mt-2 px-3 py-2 bg-red-600 hover:bg-red-700 rounded"
+      >
+        Sign Out
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Sales Section -->
+<section id="sales-section" class="section hidden">
+  <h2 class="text-2xl font-semibold mb-4">Sales</h2>
+  <!-- Quick stats -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+      <span class="text-4xl font-bold" id="sales-total-premium">0</span>
+      <span class="text-sm text-gray-400">Total Premium ($)</span>
+    </div>
+    <div class="p-4 bg-gray-800 rounded shadow flex flex-col items-center">
+      <span class="text-4xl font-bold" id="sales-total-commission">0</span>
+      <span class="text-sm text-gray-400">Total Commission ($)</span>
+    </div>
+  </div>
+  <!-- Monthly Sales Chart -->
+  <div class="mt-6 bg-gray-800 p-4 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4 text-center">Monthly Sales</h3>
+    <div class="w-full max-w-full h-72 mx-auto">
+      <canvas id="monthly-sales-chart"></canvas>
+    </div>
+  </div>
+  <!-- Policy Type Sales Chart -->
+  <div class="mt-6 bg-gray-800 p-4 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4 text-center">Sales by Policy Type</h3>
+    <div class="w-full max-w-full h-72 mx-auto">
+      <canvas id="policy-sales-chart"></canvas>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+    <!-- Lead Modal -->
+<div
+  id="lead-modal"
+  class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50"
+>
+  <div
+    id="lead-modal-content"
+    class="bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all duration-300"
+    style="max-height: 90vh; overflow-y: auto;"
+  >
+    <!-- Header -->
+    <h3 class="text-3xl font-bold mb-6 text-white text-center tracking-wide">
+      Add / Edit Lead
+    </h3>
+
+    <!-- Lead Form -->
+    <form id="lead-form" class="space-y-6">
+      <!-- Name Fields (First, Middle Initial, Last) -->
+      <div class="grid grid-cols-3 gap-6">
+        <div>
+          <label for="lead-first-name" class="text-gray-300 text-sm">First Name</label>
+          <input
+            type="text"
+            id="lead-first-name"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            placeholder="First Name"
+            required
+          />
+        </div>
+        <div>
+          <label for="lead-middle-initial" class="text-gray-300 text-sm">Middle Initial</label>
+          <input
+            type="text"
+            id="lead-middle-initial"
+            maxlength="1"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            placeholder="M"
+          />
+        </div>
+        <div>
+          <label for="lead-last-name" class="text-gray-300 text-sm">Last Name</label>
+          <input
+            type="text"
+            id="lead-last-name"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            placeholder="Last Name"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- DOB & Age -->
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <label for="lead-dob" class="text-gray-300 text-sm">Date of Birth</label>
+          <input
+            type="date"
+            id="lead-dob"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            required
+          />
+        </div>
+        <div>
+          <label for="lead-age" class="text-gray-300 text-sm">Age</label>
+          <input
+            type="number"
+            id="lead-age"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 outline-none"
+            placeholder="Auto-calculated"
+            readonly
+          />
+        </div>
+      </div>
+
+      <!-- Medicare, Medicaid, SSN, ZIP + State -->
+      <div class="grid grid-cols-4 gap-6">
+        <div>
+          <label for="lead-medicare" class="text-gray-300 text-sm">Medicare #</label>
+          <input
+            type="text"
+            id="lead-medicare"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+        <div>
+          <label for="lead-medicaid" class="text-gray-300 text-sm">Medicaid #</label>
+          <input
+            type="text"
+            id="lead-medicaid"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+        <div>
+          <label for="lead-ssn" class="text-gray-300 text-sm">SSN</label>
+          <input
+            type="text"
+            id="lead-ssn"
+            maxlength="9"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+        <div>
+          <label for="leadZip" class="text-gray-300 text-sm">ZIP Code &amp; State</label>
+          <div class="flex space-x-2">
+            <input
+              type="text"
+              id="leadZip"
+              maxlength="10"
+              class="flex-1 p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="ZIP"
+              required
+            />
+            <input
+              type="text"
+              id="lead-state"
+              maxlength="2"
+              class="w-20 p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="ST"
+              readonly
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Phone -->
+      <div>
+        <label for="lead-phone" class="text-gray-300 text-sm">Phone</label>
+        <input
+          type="tel"
+          id="lead-phone"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          placeholder="(123) 456-7890"
+        />
+      </div>
+
+      <!-- Plan & Sunfire Code -->
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <label for="lead-plan" class="text-gray-300 text-sm">Plan Pitched</label>
+          <input
+            type="text"
+            id="lead-plan"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+        <div>
+          <label for="lead-sunfire" class="text-gray-300 text-sm">Sunfire Code</label>
+          <input
+            type="text"
+            id="lead-sunfire"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          />
+        </div>
+      </div>
+
+      <!-- Medications -->
+      <div>
+        <label for="lead-medications" class="text-gray-300 text-sm">Medications</label>
+        <textarea
+          id="lead-medications"
+          rows="3"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 resize-y focus:ring-2 focus:ring-green-500 outline-none"
+          placeholder="List medications..."
+        ></textarea>
+      </div>
+
+      <!-- Doctors -->
+      <div>
+        <label for="lead-doctors" class="text-gray-300 text-sm">Doctors</label>
+        <textarea
+          id="lead-doctors"
+          rows="3"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 resize-y focus:ring-2 focus:ring-green-500 outline-none"
+          placeholder="List doctors..."
+        ></textarea>
+      </div>
+      <!-- Hospital & Assistance Levels -->
+      <div class="grid grid-cols-3 gap-6">
+        <div>
+          <label for="lead-hospital" class="text-gray-300 text-sm">Hospital</label>
+          <input
+            type="text"
+            id="lead-hospital"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            placeholder="Hospital Name"
+          />
+        </div>
+        <div>
+          <label for="lead-extra-help" class="text-gray-300 text-sm">Extra Help Level</label>
+          <select
+            id="lead-extra-help"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          >
+            <option value="">Select Level</option>
+            <option value="100% LVL 1">100% LVL 1</option>
+            <option value="100% LVL 2">100% LVL 2</option>
+            <option value="100% LVL 3">100% LVL 3</option>
+          </select>
+        </div>
+        <div>
+          <label for="lead-medicaid-level" class="text-gray-300 text-sm">Medicaid Level</label>
+          <select
+            id="lead-medicaid-level"
+            class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+          >
+            <option value="">Select Level</option>
+            <option value="QMB+">QMB+</option>
+            <option value="QMB">QMB</option>
+            <option value="FBDE">FBDE</option>
+            <option value="SLMB+">SLMB+</option>
+            <option value="SLMB">SLMB</option>
+            <option value="QDWI">QDWI</option>
+            <option value="QI">QI</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Callback -->
+      <div>
+        <label for="lead-callback" class="text-gray-300 text-sm">Callback</label>
+        <input
+          type="datetime-local"
+          id="lead-callback"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+        />
+      </div>
+
+      <!-- File Attachment -->
+      <div>
+        <label for="lead-file" class="text-gray-300 text-sm">Attachment</label>
+        <input
+          type="file"
+          id="lead-file"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+        />
+        <p class="text-xs text-gray-500 mt-1">Optional: upload a PDF, image, or other document</p>
+      </div>
+
+      <!-- Notes -->
+      <div>
+        <label for="lead-notes" class="text-gray-300 text-sm">Notes</label>
+        <textarea
+          id="lead-notes"
+          rows="4"
+          class="w-full p-3 rounded-lg bg-gray-800 text-gray-100 resize-y focus:ring-2 focus:ring-green-500 outline-none"
+          placeholder="Additional notes..."
+        ></textarea>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex justify-end space-x-4 pt-6">
+        <button
+          type="button"
+          id="clear-lead-btn"
+          class="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow transition"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          id="cancel-lead-btn"
+          class="px-5 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg shadow transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="mark-sold-btn"
+          class="px-5 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg shadow transition hidden"
+        >
+          Sold
+        </button>
+        <button
+          type="submit"
+          class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow transition"
+        >
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+    <!-- Sold Modal -->
+    <div
+      id="sold-modal"
+      class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md"
+        style="max-height: 90vh; overflow-y: auto;"
+      >
+        <h3 class="text-2xl font-bold mb-6 text-gray-100">Mark Lead as Sold</h3>
+        <form id="sold-form" class="space-y-4">
+          <div>
+            <label for="sold-plan" class="text-gray-300 text-sm">Plan Sold</label>
+            <input
+              type="text"
+              id="sold-plan"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              required
+            />
+          </div>
+          <div>
+            <label for="sold-ancillary" class="text-gray-300 text-sm">Ancillary Benefits</label>
+            <input
+              type="text"
+              id="sold-ancillary"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label for="sold-ancillary-date" class="text-gray-300 text-sm">Ancillary Date</label>
+            <input
+              type="date"
+              id="sold-ancillary-date"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            />
+          </div>
+          <!-- New Effective Date field -->
+          <div>
+            <label for="sold-effective-date" class="text-gray-300 text-sm">Effective Date</label>
+            <input
+              type="date"
+              id="sold-effective-date"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            />
+          </div>
+          <!-- Additional sales tracking fields -->
+          <div>
+            <label for="sold-premium" class="text-gray-300 text-sm">Premium Amount ($)</label>
+            <input
+              type="number"
+              id="sold-premium"
+              step="0.01"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label for="sold-commission" class="text-gray-300 text-sm">Commission ($)</label>
+            <input
+              type="number"
+              id="sold-commission"
+              step="0.01"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Optional"
+            />
+          </div>
+          <div>
+            <label for="sold-sale-date" class="text-gray-300 text-sm">Sale Date</label>
+            <input
+              type="date"
+              id="sold-sale-date"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            />
+          </div>
+          <!-- Document upload for sold -->
+          <div>
+            <label for="sold-document" class="text-gray-300 text-sm">Document</label>
+            <input
+              type="file"
+              id="sold-document"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+            />
+            <p class="text-xs text-gray-500 mt-1">Optional: upload supporting document</p>
+          </div>
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              id="cancel-sold-btn"
+              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Activity Modal -->
+    <div
+      id="activity-modal"
+      class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md"
+        style="max-height: 90vh; overflow-y: auto;"
+      >
+        <h3 class="text-2xl font-bold mb-6 text-gray-100">Add Activity</h3>
+        <form id="activity-form" class="space-y-4">
+          <div>
+            <label for="activity-agent-name" class="text-gray-300 text-sm">Agent Name</label>
+            <input
+              type="text"
+              id="activity-agent-name"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Agent Name"
+              required
+            />
+          </div>
+          <div>
+            <label for="activity-notes" class="text-gray-300 text-sm">Notes</label>
+            <textarea
+              id="activity-notes"
+              rows="4"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 resize-y focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Notes about last contact or prior authorization..."
+            ></textarea>
+          </div>
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              id="cancel-activity-btn"
+              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div
+      id="task-modal"
+      class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50"
+    >
+      <div
+        class="bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md"
+        style="max-height: 90vh; overflow-y: auto;"
+      >
+        <h3 class="text-2xl font-bold mb-6 text-gray-100">Add / Edit Task</h3>
+        <form id="task-form" class="space-y-4">
+          <div>
+            <label for="task-title" class="text-gray-300 text-sm">Task Title</label>
+            <input
+              type="text"
+              id="task-title"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              required
+            />
+          </div>
+          <div>
+            <label for="task-desc" class="text-gray-300 text-sm">Description</label>
+            <textarea
+              id="task-desc"
+              rows="3"
+              class="w-full p-3 rounded bg-gray-800 text-gray-100 resize-y focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Describe the task..."
+            ></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="task-due-date" class="text-gray-300 text-sm">Due Date</label>
+              <input
+                type="date"
+                id="task-due-date"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              />
+            </div>
+            <div>
+              <label for="task-priority" class="text-gray-300 text-sm">Priority</label>
+              <select
+                id="task-priority"
+                class="w-full p-3 rounded bg-gray-800 text-gray-100 focus:ring-2 focus:ring-green-500 outline-none"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              id="cancel-task-btn"
+              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+	
+
+<!-- Combined Overlay for Profile + Carrier -->
+<div id="profileCarrierOverlay"
+     class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-[9999]">
+  
+  <div class="flex gap-6"> <!-- Flexbox to show them side by side -->
+
+    <!-- Profile Modal -->
+    <div id="profileModalContent"
+         class="relative bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md"
+         style="max-height: 90vh; overflow-y: auto;">
+      <span id="closeProfile" 
+            class="absolute top-4 right-4 text-white text-2xl cursor-pointer">&times;</span>
+      <h2 class="text-2xl font-bold mb-6 text-gray-100">User Profile</h2>
+      <form id="profileForm" class="space-y-4">
+        
+        <!-- Profile Picture -->
+        <div>
+          <label class="text-gray-300 text-sm">Profile Picture</label>
+          <input type="file" id="profilePic" accept="image/*" class="w-full text-gray-100">
+          <img id="profilePreview" src="default-avatar.png" alt="Profile Picture" class="mt-2 rounded-full max-w-[100px]">
+        </div>
+
+        <!-- Name -->
+        <div>
+          <label class="text-gray-300 text-sm">Full Name</label>
+          <input type="text" id="profileName" class="w-full p-2 rounded bg-gray-800 text-gray-100">
+        </div>
+
+        <!-- Change Password -->
+        <div>
+          <label class="text-gray-300 text-sm">Change Password</label>
+          <input type="password" id="newPassword" placeholder="New Password" class="w-full p-2 rounded bg-gray-800 text-gray-100">
+        </div>
+
+        <!-- Carrier Credentials -->
+<div>
+  <label class="text-gray-300 text-sm">Carrier Credentials</label>
+  <div id="carrierInputs" class="space-y-4">
+    <!-- Carrier input groups will be added here by JS -->
+  </div>
+  <button type="button" id="addCarrierBtn"
+          class="mt-3 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+    + Add Carrier
+  </button>
+</div>
+
+        <!-- Sales Stats -->
+        <div>
+          <h3 class="text-gray-200 font-semibold">Your Sales</h3>
+          <p id="salesStats" class="text-gray-300">Loading...</p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="viewCarriersBtn"
+                  class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
+            View Carriers
+          </button>
+          <button type="button" id="cancelProfile" 
+                  class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">
+            Cancel
+          </button>
+          <button type="submit" 
+                  class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Carrier Modal Content (starts hidden, toggled by JS) -->
+    <div id="carrierModalContent"
+         class="relative bg-gray-900 p-6 rounded-xl shadow-xl w-full max-w-md hidden"
+         style="max-height: 90vh; overflow-y: auto;">
+      <span id="closeCarrier"
+            class="absolute top-4 right-6 text-white text-2xl cursor-pointer">&times;</span>
+      <h2 class="text-2xl font-bold mb-6 text-gray-100">Carrier Credentials</h2>
+      <ul id="carrierList" class="space-y-3 text-gray-200">
+        <li>Loading...</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+<!-- Carrier Edit Modal -->
+<div id="carrierEditModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-[10000]">
+  <div class="bg-gray-900 p-6 rounded-xl w-full max-w-md">
+    <h3 class="text-2xl font-bold mb-4 text-gray-100">Edit Carrier</h3>
+    <form id="carrierEditForm" class="space-y-4">
+      <div>
+        <label class="text-gray-300 text-sm">Carrier Name</label>
+        <input type="text" id="editCarrierName" class="w-full p-2 rounded bg-gray-800 text-gray-100" />
+      </div>
+      <div>
+        <label class="text-gray-300 text-sm">Notes</label>
+        <textarea id="editCarrierNotes" class="w-full p-2 rounded bg-gray-800 text-gray-100"></textarea>
+      </div>
+      <div class="flex justify-end space-x-3">
+        <button type="button" id="cancelEditCarrier" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Login Modal (shown when not authenticated) -->
+<div
+  id="auth-modal"
+  class="fixed inset-0 flex items-center justify-center z-50"
+>
+  <div class="bg-gray-800 p-6 rounded-lg w-full max-w-sm relative">
+    
+    <!-- Logo + Title -->
+    <div class="flex flex-col items-center mb-4">
+      <img src="/favicon-32x32.png" alt="CRM Logo" class="w-12 h-12 mb-2">
+      <h3 class="text-xl font-semibold text-white">Login</h3>
+    </div>
+
+    <form id="login-form" class="space-y-3">
+      <input type="email" id="login-email"
+             class="w-full p-2 rounded bg-gray-700 text-gray-100"
+             placeholder="Email" required />
+      <input type="password" id="login-password"
+             class="w-full p-2 rounded bg-gray-700 text-gray-100"
+             placeholder="Password" required />
+      <button type="submit"
+              class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded">
+        Sign In
+      </button>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
