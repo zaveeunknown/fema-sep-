@@ -25,8 +25,21 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
   });
 }
 
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js";
+
+const firebaseConfig = {
+  /* ... your config ... */
+};
+
+const app = initializeApp(firebaseConfig);   // ✅ must come before getFunctions
+const firebaseAuth = getAuth(app);
+const firebaseDB = getFirestore(app);
+
+const functions = getFunctions(app);   // ✅ pass the initialized app
+const refreshFema = httpsCallable(functions, "refreshFemaNow");
 
 (function () {
  
@@ -158,13 +171,7 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth
   const leadSearchInput = document.getElementById('lead-search');
   const clearLeadSearchBtn = document.getElementById('clear-lead-search');
 
-  // Firebase references
-  const firebaseAuth = firebase.auth();
-  const firebaseDB = firebase.firestore();
-
-  const functions = getFunctions();
-  const refreshFema = httpsCallable(functions, "refreshFemaNow");
-  getAuth(); // initialize modular auth
+  // Firebase references initialized in the global scope
 
   const refreshBtn = document.getElementById("refresh-fema-btn");
 
@@ -2759,17 +2766,7 @@ if (analyticsApplyBtn) {
   const sections = document.querySelectorAll('.admin-section');
   const adminContentEl = document.getElementById('admin-content');
   const adminOverviewEl = document.getElementById('admin-overview');
-  // Use a local Firebase auth instance for admin functions.  If the
-  // Firebase SDK is not available (e.g. when working offline or
-  // Firebase scripts failed to load), fall back to a stub object so
-  // the rest of the admin dashboard logic can run without errors.
-  const firebaseAuth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : {
-    // Provide a no‑op signOut method so calls to signOut() do not
-    // throw.  Additional methods can be stubbed here if needed.
-    async signOut() {
-      return Promise.resolve();
-    },
-  };
+  // Firebase auth instance is initialized earlier
   // Overview stats elements
   const overviewTotalLeadsEl = document.getElementById('overview-total-leads');
   const overviewTotalClientsEl = document.getElementById('overview-total-clients');
