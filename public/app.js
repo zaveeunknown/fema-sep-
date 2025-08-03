@@ -258,9 +258,6 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
     if (sectionId === 'tasks') {
       loadTasks();
     }
-    if (sectionId === 'fema') {
-      loadFemaDisasters();
-    }
     if (sectionId === 'analytics') {
       updateAnalytics();
     }
@@ -277,51 +274,35 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
   }
 
   /* ------------------ Load FEMA Disasters ------------------ */
-  async function loadFemaDisasters() {
+  async function loadFemaData() {
     try {
-      const doc = await firebaseDB.collection("fema").doc("latest").get();
-      const listDiv = document.getElementById("agent-disaster-list");
-      if (!listDiv) return;
-      listDiv.innerHTML = "";
+      // Use local emulator if testing, prod URL when deployed
+      const response = await fetch(
+        "http://127.0.0.1:5001/home-crm-63f1f/us-central1/getActiveFema"
+      );
+      if (!response.ok) throw new Error("Failed to fetch FEMA data");
 
-      if (
-        !doc.exists ||
-        !doc.data() ||
-        !Array.isArray(doc.data().data) ||
-        !doc.data().data.length
-      ) {
-        listDiv.innerHTML = "<p>No active FEMA disasters at this time.</p>";
-        return;
-      }
+      const disasters = await response.json();
 
-      const disasters = doc.data().data;
+      const femaTable = document.getElementById("fema-table-body");
+      femaTable.innerHTML = ""; // clear old rows
 
-      disasters.forEach((item, index) => {
-        const section = document.createElement("div");
-        section.classList.add("p-4", "mb-4", "bg-gray-800", "rounded");
-        section.innerHTML = `
-        <div class="font-bold text-lg">${item.state}</div>
-        <div class="text-sm mb-2">
-          <b>Begin:</b> ${item.incidentBeginDate || "Unknown"} |
-          <b>End:</b> ${item.incidentEndDate || "Ongoing"}<br>
-          <b>Disasters:</b> ${item.disasterNumbers.join(", ")}<br>
-          <b>Titles:</b> ${item.titles.join("; ")}
-        </div>
-        <div class="flex flex-wrap gap-2 text-xs">
-          ${item.counties
-            .map((c) => `<span class="bg-gray-700 px-2 py-1 rounded">${c}</span>`)
-            .join("")}
-        </div>`;
-        listDiv.appendChild(section);
-        gsap.from(section, {
-          opacity: 0,
-          y: 20,
-          duration: 0.3,
-          delay: index * 0.05,
-        });
+      disasters.forEach((d) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+        <td>${d.state}</td>
+        <td>${d.incidentBeginDate}</td>
+        <td>${d.incidentEndDate}</td>
+        <td>${d.declarationDate}</td>
+        <td>${d.sepStart} → ${d.sepEnd}</td>
+        <td>${d.counties.join(", ")}</td>
+        <td>${d.titles.join(", ")}</td>
+      `;
+        femaTable.appendChild(row);
       });
     } catch (error) {
-      console.error("Error loading FEMA disasters:", error);
+      console.error("❌ Error loading FEMA data:", error);
+      alert("Could not load FEMA data. Check console for details.");
     }
   }
 
@@ -458,10 +439,17 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
     }
   }
   navLinks.forEach((link) => {
-    link.addEventListener('click', () => {
-      const section = link.dataset.section;
-      showSection(section);
-    });
+    if (link.id !== 'nav-fema') {
+      link.addEventListener('click', () => {
+        const section = link.dataset.section;
+        showSection(section);
+      });
+    }
+  });
+
+  document.getElementById('nav-fema').addEventListener('click', () => {
+    showSection('fema-section');
+    loadFemaData();
   });
 
 /* -----------------------------------------------------------------------
