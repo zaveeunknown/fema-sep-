@@ -65,7 +65,7 @@
   <button class="nav-link" data-section="notes" data-role="agent">Notes</button>
   <button class="nav-link" data-section="tasks" data-role="agent">Tasks</button>
   <button class="nav-link" data-section="analytics" data-role="agent">Analytics</button>
-  <button class="nav-link" data-section="fema" data-role="agent">FEMA</button>
+  <button id="nav-fema" class="nav-link" data-section="fema" data-role="agent">FEMA</button>
   <button class="nav-link" data-section="sales" data-role="agent">Sales</button>
   <button class="nav-link" data-section="settings" data-role="agent">Settings</button>
   <button class="nav-link" data-section="profile" data-role="agent">Profile</button>
@@ -654,8 +654,21 @@
 
         <!-- FEMA Section -->
         <section id="fema-section" class="section hidden">
-          <h2 class="text-2xl font-semibold mb-4">FEMA Disasters</h2>
-          <div id="agent-disaster-list" class="space-y-4"></div>
+          <h2 class="text-xl font-bold mb-4">Active FEMA Disasters</h2>
+          <table class="table-auto w-full text-left border-collapse border border-gray-700">
+            <thead>
+              <tr class="bg-gray-800 text-white">
+                <th class="px-4 py-2">State</th>
+                <th class="px-4 py-2">Incident Begin</th>
+                <th class="px-4 py-2">Incident End</th>
+                <th class="px-4 py-2">Declaration</th>
+                <th class="px-4 py-2">SEP Period</th>
+                <th class="px-4 py-2">Counties</th>
+                <th class="px-4 py-2">Titles</th>
+              </tr>
+            </thead>
+            <tbody id="fema-table-body"></tbody>
+          </table>
         </section>
 
 <!-- Analytics Section -->
