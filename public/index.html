@@ -25,7 +25,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Main JS logic: use the extended script with sold workflow -->
     <script defer src="firebase.js"></script>
-    <script defer src="app.js"></script>
+    <script type="module" src="app.js"></script>
     <!-- Modern browsers (preferred) -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -655,20 +655,25 @@
         <!-- FEMA Section -->
         <section id="fema-section" class="section hidden">
           <h2 class="text-xl font-bold mb-4">Active FEMA Disasters</h2>
-          <table class="table-auto w-full text-left border-collapse border border-gray-700">
-            <thead>
-              <tr class="bg-gray-800 text-white">
-                <th class="px-4 py-2">State</th>
-                <th class="px-4 py-2">Incident Begin</th>
-                <th class="px-4 py-2">Incident End</th>
-                <th class="px-4 py-2">Declaration</th>
-                <th class="px-4 py-2">SEP Period</th>
-                <th class="px-4 py-2">Counties</th>
-                <th class="px-4 py-2">Titles</th>
-              </tr>
-            </thead>
-            <tbody id="fema-table-body"></tbody>
-          </table>
+          <div id="fema-container">
+            <table class="table-auto w-full text-left border-collapse border border-gray-700">
+              <thead>
+                <tr class="bg-gray-800 text-white">
+                  <th class="px-4 py-2">State</th>
+                  <th class="px-4 py-2">Incident Begin</th>
+                  <th class="px-4 py-2">Incident End</th>
+                  <th class="px-4 py-2">Declaration</th>
+                  <th class="px-4 py-2">SEP Period</th>
+                  <th class="px-4 py-2">Counties</th>
+                  <th class="px-4 py-2">Titles</th>
+                </tr>
+              </thead>
+              <tbody id="fema-table-body"></tbody>
+            </table>
+          </div>
+          <button id="refresh-fema-btn" class="bg-blue-600 px-4 py-2 text-white rounded hidden">
+            Refresh FEMA Data
+          </button>
         </section>
 
 <!-- Analytics Section -->
