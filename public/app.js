@@ -27,7 +27,8 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js";
 
 const firebaseConfig = {
@@ -37,6 +38,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);   // ✅ must come before getFunctions
 const firebaseAuth = getAuth(app);
 const firebaseDB = getFirestore(app);
+const storage = getStorage(app);
 
 const functions = getFunctions(app);   // ✅ pass the initialized app
 const refreshFema = httpsCallable(functions, "refreshFemaNow");
@@ -829,12 +831,12 @@ if (loginForm) {
     extraHelpLevel: leadExtraHelp.value,
     medicaidLevel: leadMedicaidLevel.value,
     zipcode: leadZip.value.trim(), // <-- correct reference
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: serverTimestamp(),
     userId: currentUser ? currentUser.uid : null,
   };
       // createdAt only on creation
       if (!editingDocId) {
-        data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        data.createdAt = serverTimestamp();
       }
 	  console.log("Saving lead data:", data);
       try {
@@ -931,7 +933,7 @@ if (loginForm) {
         commission: soldCommissionInput && soldCommissionInput.value ? parseFloat(soldCommissionInput.value) : null,
         saleDate: soldSaleDateInput && soldSaleDateInput.value ? soldSaleDateInput.value : null,
         document: soldDocumentInput && soldDocumentInput.files && soldDocumentInput.files[0] ? soldDocumentInput.files[0].name : null,
-        soldAt: firebase.firestore.FieldValue.serverTimestamp(),
+        soldAt: serverTimestamp(),
       };
       // Find the lead in our local snapshot so we can copy its fields
       const lead = leadsSnapshot.find((l) => l.id === editingDocId);
@@ -944,7 +946,7 @@ if (loginForm) {
       // Remove the id field from the copy; Firestore will assign a new one
       delete clientData.id;
       // Update timestamps
-      clientData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      clientData.updatedAt = serverTimestamp();
       clientData.userId = currentUser.uid;
       try {
         // Create new client document
@@ -990,7 +992,7 @@ if (loginForm) {
       const update = {
         activityAgentName: activityAgentName.value.trim(),
         activityNotes: activityNotes.value.trim(),
-        activityUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        activityUpdatedAt: serverTimestamp(),
       };
       try {
         await firebaseDB.collection('leads').doc(activityDocId).set(update, { merge: true });
@@ -1363,7 +1365,7 @@ leadsTableBody.addEventListener('click', async (e) => {
         await firebaseDB.collection('notes').add({
           text,
           userId: currentUser.uid,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         });
         noteForm.reset();
       } catch (err) {
@@ -2276,9 +2278,9 @@ document.getElementById("profileForm").addEventListener("submit", async (e) => {
 
     if (fileInput && fileInput.files.length > 0) {
       const file = fileInput.files[0];
-      const storageRef = firebase.storage().ref(`profilePics/${currentUser.uid}`);
-      await storageRef.put(file);
-      profilePicUrl = await storageRef.getDownloadURL();
+        const storageRef = ref(storage, `profilePics/${currentUser.uid}`);
+        await uploadBytes(storageRef, file);
+        profilePicUrl = await getDownloadURL(storageRef);
     }
 
     const updates = { name, ...(profilePicUrl ? { profilePic: profilePicUrl } : {}) };
