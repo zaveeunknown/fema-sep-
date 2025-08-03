@@ -25,6 +25,9 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
   });
 }
 
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
 (function () {
  
   const navLinks = document.querySelectorAll('.nav-link');
@@ -158,6 +161,36 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
   // Firebase references
   const firebaseAuth = firebase.auth();
   const firebaseDB = firebase.firestore();
+
+  const functions = getFunctions();
+  const refreshFema = httpsCallable(functions, "refreshFemaNow");
+  getAuth(); // initialize modular auth
+
+  const refreshBtn = document.getElementById("refresh-fema-btn");
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", async () => {
+      try {
+        const result = await refreshFema();
+        alert(`FEMA data refreshed! Disasters loaded: ${result.data.count}`);
+        // Reload FEMA tab so data updates immediately
+        loadFemaData();
+      } catch (e) {
+        console.error("❌ FEMA refresh failed:", e);
+        alert("FEMA refresh failed. See console for details.");
+      }
+    });
+  }
+
+  // Show button only for admins
+  firebaseAuth.onAuthStateChanged(async (user) => {
+    if (user) {
+      const userDoc = await firebaseDB.collection("users").doc(user.uid).get();
+      if (userDoc.exists && userDoc.data().isAdmin) {
+        if (refreshBtn) refreshBtn.classList.remove("hidden");
+      }
+    }
+  });
 
   /* -----------------------------------------------------------------------
    *  State Variables
