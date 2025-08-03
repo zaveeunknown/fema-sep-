@@ -276,10 +276,8 @@ if (typeof require !== "undefined" && typeof exports !== "undefined") {
   /* ------------------ Load FEMA Disasters ------------------ */
   async function loadFemaData() {
     try {
-      // Use local emulator if testing, prod URL when deployed
-      const response = await fetch(
-        "http://127.0.0.1:5001/home-crm-63f1f/us-central1/getActiveFema"
-      );
+      // Fetch active FEMA disasters from the server
+      const response = await fetch("/getActiveFema");
       if (!response.ok) throw new Error("Failed to fetch FEMA data");
 
       const disasters = await response.json();
